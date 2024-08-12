@@ -1,6 +1,6 @@
 import axios from "react-native-axios";
 const qs = require('qs');
-import { base_url } from '../apiHelper/APIs.json';
+import { base_url,base_url1 } from '../apiHelper/APIs.json';
 import RNFetchBlob from 'rn-fetch-blob';
 
 export const GET = (url, callBack) => {
@@ -20,8 +20,10 @@ export const GET = (url, callBack) => {
 }
 
 export const POST = (url, requestBody, callBack) => {
+    console.log("url",url,requestBody)
     axios.post(base_url + url, qs.stringify(requestBody))
         .then(function (response) {
+            console.log("response",response)
             let responseData = response.data;
             callBack({ status: responseData.status ? '0' : '1', responseData });
         })

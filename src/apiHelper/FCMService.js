@@ -10,6 +10,7 @@ import firebase from '@react-native-firebase/app';
 import AsyncStorage from '@react-native-community/async-storage';
 import {images} from '../res/images';
 import {onGetChat} from '../utils/svgImagesAction';
+import messaging from '@react-native-firebase/messaging';
 //#endregion
 //#endregion
 global.fcmToken = '';
@@ -24,57 +25,38 @@ class FCMService {
       onOpenNotification,
     );
   };
-  checkPermission = async callBack => {
-    firebase
-      .messaging()
-      .hasPermission()
-      .then(enabled => {
-        if (enabled) {
-          this.getToken(callBack);
-        } else {
-          this.requestPermission(callBack);
-        }
-      })
-      .catch(error => {
-        console.log('Error', error);
-      });
+  requestPermission = async () => {
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+      authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+    if (!enabled) {
+      console.log('FCM Permission denied');
+    }
   };
 
-  getToken = async callBack => {
-    firebase
-      .messaging()
-      .getToken()
-      .then(fcmToken => {
-        if (fcmToken) {
-          global.fcmToken = fcmToken;
-          callBack !== undefined && callBack(fcmToken);
-        }
-      })
-      .catch(error => {
-        console.log('getToken rejected ', error);
-      });
+  getToken = async (callBack) => {
+    try {
+      const fcmToken = await messaging().getToken();
+      if (fcmToken) {
+        global.fcmToken = fcmToken;
+        callBack && callBack(fcmToken);
+      }
+    } catch (error) {
+      console.log('Failed to get FCM token:', error);
+    }
   };
 
-  requestPermission = async callBack => {
-    firebase
-      .messaging()
-      .requestPermission()
-      .then(() => {
-        this.getToken(callBack);
-      })
-      .catch(error => {
-        console.log('Requested persmission rejected ', error);
-      });
+  deleteToken = async () => {
+    try {
+      await messaging().deleteToken();
+      global.fcmToken = '';
+    } catch (error) {
+      console.log('Failed to delete FCM token:', error);
+    }
   };
 
-  deletedToken = () => {
-    firebase
-      .messaging()
-      .deleteToken()
-      .catch(error => {
-        console.log('Delected token error ', error);
-      });
-  };
 
   createNotificationListeners = async callBack => {
     this.notificationListener = firebase

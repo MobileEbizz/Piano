@@ -176,9 +176,10 @@ export default newhome = ({ navigation }) => {
     );
 
     setLevels([...hData]);
+  
     setIsLoading(false);
   };
-
+  console.log("isloding",isLoading)
   const _errorMessage = text => {
     Keyboard.dismiss();
     setTimeout(() => {
@@ -218,6 +219,7 @@ export default newhome = ({ navigation }) => {
   const getAllLevels = async hChapter => {
     setIsLoading(true);
     await POST(quizAndLevels, { data: 'none' }, async function (response) {
+      console.log("response0--------",response)
       if (!response?.status) {
         _errorMessage(response.responseData.message);
       } else {

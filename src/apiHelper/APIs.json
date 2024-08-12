@@ -64,11 +64,11 @@
 //   "update_current_day": "update_current_day.php",
 //   "ear_score_graph": "ear_score_graph.php"
 // }
-
+// "base_url": "https://piano.evenmore.in/V1/",
 {
   "api_version": "V1.0",
   "IAP_password": "81ea0d15034a4ed9bc4ef8bd6b1bb033",
-  "base_url": "https://piano.evenmore.in/V1/",
+  "base_url": "https://piano.buyhighline.in/V1.0/",
   "base_url1": "https://piano.evenmore.in/piano_test/APIs/V1.0/",
   "image_videos_base_url": "https://piano.evenmore.in/piano/APIs/uploads/chapter/",
   "image_videos_base_url1": "https://piano.evenmore.in/piano_test/APIs/uploads/chapter/",
