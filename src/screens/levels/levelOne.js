@@ -20,15 +20,21 @@ const dHeight = Dimensions.get("screen").height;
 import { levelsResult, common_url } from "../../apiHelper/APIs.json";
 import { chapterNumber, levelNumber, levelResult } from "../../utils/constants";
 import AsyncStorage from "@react-native-community/async-storage";
+import { useColorScheme } from "../../../node_modules/react-native/types/index";
 export default levelOne = ({ navigation, route }) => {
-  console.log("\\\\\\\\\\\\");
   const level1Data = route.params.data;
   const levelIndex = route.params.levelIndex;
+  const userID = route.params.userID;
   const thisLevelData = level1Data[levelIndex];
-  const questionID = thisLevelData.level_question.split(",");
+  // const questionID = thisLevelData.level_question.split(",");
+  const [data, setData] = useState([]);
+  const [dataInfo, setDataInfo] = useState();
   const [progress, setProgress] = useState(0);
   const [stepOne, setStepOne] = useState(0);
   const [nodesPosition, setNodesPosition] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [filteredData, setFilteredData] = useState([]);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [nodes, setNodes] = useState(["?", "?", "?", "?"]);
   let timeInterval = null;
   const desc = [
@@ -71,12 +77,26 @@ export default levelOne = ({ navigation, route }) => {
     };
   }, []);
 
+  console.log("data----", data);
+
   useEffect(() => {
-    myTimer();
+    const uncompletedItems =
+      data?.filter((item) => item.isComplete !== "1") || [];
+    setFilteredData(uncompletedItems);
+  }, [data]);
+
+  useEffect(() => {
+    if(progress == 100){
+      navigation.goBack()
+    }
+    getChapterInfo();
     return () => {
       clearInterval(timeInterval);
     };
-  }, []);
+    
+  }, [progress]);
+
+
   const onHearBaseSound = () => {
     setStepOne(0);
     myTimer(true);
@@ -86,7 +106,7 @@ export default levelOne = ({ navigation, route }) => {
     timeInterval = setInterval(() => {
       if (cc <= 3) {
         if (!isStartFromMain) {
-          setProgress((prev) => prev + 12);
+          // setProgress((prev) => prev + 12);
         }
       }
       if (cc === 4) {
@@ -102,20 +122,18 @@ export default levelOne = ({ navigation, route }) => {
     }, 2000);
   };
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if (stepOne === 0) {
-      let hPath =
-        thisLevelData?.options[parseInt(questionID[nodesPosition - 1])]
-          ?.localTrackPath;
-      playTrack(hPath);
-    }
-  }, [nodesPosition]);
+  // useEffect(() => {
+  //   if (stepOne === 0) {
+  //     let hPath =
+  //       thisLevelData?.options[parseInt(questionID[nodesPosition - 1])]
+  //         ?.localTrackPath;
+  //     playTrack(hPath);
+  //   }
+  // }, [nodesPosition]);
 
   const handleNodePress = (index) => {
-    setNodesPosition(index); // Update nodesPosition based on the pressed node
+    setNodesPosition(index);
   };
-
-  console.log("nodesPosition", nodesPosition);
 
   const onSetNodesAnswer = (keyNodes) => {
     let hPath = thisLevelData?.options[parseInt(keyNodes)]?.localTrackPath;
@@ -137,48 +155,163 @@ export default levelOne = ({ navigation, route }) => {
     }
 
     if (nodesPosition <= 3) {
-      setProgress((prev) => prev + 12);
+      // setProgress((prev) => prev + 12);
     }
-    if (nodesPosition === 4) {
-      setStepOne((prev) => prev + 1);
-      setProgress(100);
+    if (nodesPosition === 3) {
+      setStepOne(1);
+      // setProgress(100);
     }
     // setNodesPosition((prev) => prev + 1);
   };
   const playTrack = (trackPath) => {
     if (trackPath) {
+      console.log("trackPath", trackPath);
       try {
-        // SoundPlayer.playUrl(trackPath, 'mp3');
-        console.log("trackPath", trackPath);
+        setIsPlaying(true);
+        SoundPlayer.stop();
         SoundPlayer.playUrl(trackPath);
+        setCurrentTrack(trackPath);
       } catch (e) {
         console.log(`cannot play the sound file`, e);
       }
     }
   };
-  const onSubmit = async () => {
-    let hCheapterNumber = await AsyncStorage.getItem(chapterNumber);
-    let hLevelsNumber = await AsyncStorage.getItem(levelNumber);
-    const request = {
-      level: hLevelsNumber,
-      cheapter: hCheapterNumber,
-      questionID: questionID,
-      answer: nodes,
-      correct: true,
+
+  const pauseTrack = () => {
+    if (isPlaying) {
+      try {
+        SoundPlayer.pause();
+        setIsPlaying(false);
+      } catch (e) {
+        console.log(`cannot pause the sound file`, e);
+      }
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      pauseTrack();
+    } else {
+      playTrack(filteredData[currentIndex].mediaUrl);
+    }
+  };
+
+  const submitAnswer = (userId, chapterId, levelId, answer) => {
+    const myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+
+    console.log("resultString", answer.split(",").join(""));
+    let numericValue = userId.replace(/\D/g, "");
+    let finalNumber = parseInt(numericValue, 10);
+    const raw = JSON.stringify({
+      data: {
+        userId: finalNumber,
+        chapter_id: chapterId,
+        lavel_id: levelId,
+        answer: answer.split(",").join(""),
+      },
+    });
+
+    console.log("raw=-=-=-=", raw);
+    const requestOptions = {
+      method: "POST",
+      headers: myHeaders,
+      body: raw,
+      redirect: "follow",
     };
 
-    let hLevelResults = await AsyncStorage.getItem(levelResult);
-
-    if (hLevelResults !== null) {
-      hLevelResults = JSON.parse(hLevelResults);
-      hLevelResults.push(request);
-      AsyncStorage.setItem(levelResult, JSON.stringify(hLevelResults));
-    } else {
-      AsyncStorage.setItem(levelResult, JSON.stringify([hLevelResults]));
-    }
-    await AsyncStorage.setItem(levelNumber, "2");
-    navigation.goBack();
+    fetch(
+      "https://piano.buyhighline.in/V1.0/Piano-Admin/api/Lavel/set_lavel_answer",
+      requestOptions
+    )
+      .then((response) => response.json())
+      .then((result) => {
+        console.log("Success:", result);
+        if (result.status == 1) {
+          // onSubmitSuccess();
+          setStepOne(0);
+          setNodes(["?", "?", "?", "?"]);
+          getChapterInfo();
+          setProgress(result?.isComplatedPr);
+        } else {
+          console.log("Submission failed:", result.message);
+          alert("Failed to submit answer. Please try again.");
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        alert("An error occurred. Please check your connection and try again.");
+      });
   };
+
+  const onSubmit = async () => {
+    if (filteredData.length === 0) return;
+
+    const currentData = filteredData[currentIndex];
+    const userId = userID;
+    const chapterId = level1Data?.chapter_id;
+    const levelId = currentData.id;
+    const answer = nodes.toString();
+
+    submitAnswer(userId, chapterId, levelId, answer);
+
+    // Update the filtered data and current index
+    const updatedData = filteredData.map((item, index) => {
+      if (index === currentIndex) {
+        return { ...item, isComplete: "1" };
+      }
+      return item;
+    });
+
+    const nextData = updatedData.filter((item) => item.isComplete !== "1");
+    setFilteredData(nextData);
+
+    if (nextData.length > 0) {
+      setCurrentIndex(0);
+    } else {
+      console.log("All items completed");
+    }
+  };
+
+  const getChapterInfo = async () => {
+    var myHeaders = new Headers();
+    myHeaders.append("Content-Type", "application/json");
+    myHeaders.append(
+      "Cookie",
+      "ci_session=8df9dee3c7769ea50a7671c5c4a90c54649eaa19"
+    );
+    let numericValue = userID.replace(/\D/g, "");
+    let finalNumber = parseInt(numericValue, 10);
+    var raw = JSON.stringify({
+      data: {
+        userId: finalNumber,
+        chapter_id: level1Data?.chapter_id,
+      },
+    });
+
+    console.log("-=-=-=-=-=raw", raw);
+    var requestOptions = {
+      method: "POST",
+      headers: myHeaders,
+      body: raw,
+      redirect: "follow",
+    };
+
+    fetch(
+      "https://piano.buyhighline.in/V1.0/Piano-Admin//api/Lavel/get_chapter_Info",
+      requestOptions
+    )
+      .then((response) => response.json())
+      .then((result) => {
+        if (result?.status == 1) {
+          setData(result?.data?.chapterMoreInfo);
+          setDataInfo(result?.data);
+          setProgress(result?.isComplatedPr);
+        }
+      })
+      .catch((error) => console.log("error", error));
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.creamBase1 }}>
       <StatusBar barStyle={"dark-content"} />
@@ -215,22 +348,24 @@ export default levelOne = ({ navigation, route }) => {
         </View>
 
         <View style={styles.playContainer}>
-          <Pressable
-            onPress={() => playTrack(thisLevelData.locallevelquestionaudio)}
+          <TouchableOpacity
+            onPress={handlePlayPause}
             style={[
               styles.playiconcontainer,
               { borderWidth: stepOne >= 1 ? 0 : 4 },
             ]}
           >
-            <Image source={images.ic_play} style={styles.platIconst} />
-          </Pressable>
+            <Image
+              source={isPlaying ? images.ic_pause : images.ic_play}
+              style={styles.platIconst}
+            />
+          </TouchableOpacity>
           <Text style={styles.playText}>
-            {thisLevelData?.level_track_name || "No Name"}
+            {dataInfo?.lessioName || "No Name"}
           </Text>
           <Text style={styles.nodeDesc}>{desc[stepOne]}</Text>
           <View style={styles.playNodecontainer}>
             {nodes.map((item, index) => (
-              console.log("index",index),
               <TouchableOpacity
                 key={index}
                 onPress={() => handleNodePress(index)}
@@ -257,44 +392,48 @@ export default levelOne = ({ navigation, route }) => {
 
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: "row" }}>
-            {["", "", "", "", "", "", ""].map((_, index) => (
-              <View
-                style={[
-                  styles.pianoWhite,
-                  {
-                    borderBottomLeftRadius: index === 0 ? 10 : 3,
-                    borderBottomRightRadius: index === 6 ? 10 : 3,
-                    justifyContent: "flex-end",
-                  },
-                ]}
-              >
-                {stepOne >= 1 && (
-                  <Pressable
-                    disabled={nodesPosition === 5}
-                    style={{
-                      backgroundColor: colors.creamBase5,
-                      height: 35,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: 15,
-                      marginHorizontal: 3,
-                      marginBottom: 2,
-                    }}
-                    onPress={() => onSetNodesAnswer(index + 1)}
-                  >
-                    <Text
+            {["", "", "", "", "", "", ""].map((_, index) => {
+              return (
+                <View
+                  style={[
+                    styles.pianoWhite,
+                    {
+                      borderBottomLeftRadius: index === 0 ? 10 : 3,
+                      borderBottomRightRadius: index === 6 ? 10 : 3,
+                      justifyContent: "flex-end",
+                    },
+                  ]}
+                >
+                  {/* {stepOne >= 1 && ( */}
+                  {nodes.length && (
+                    <Pressable
+                      disabled={nodesPosition === 5}
                       style={{
-                        color: colors.white,
-                        fontFamily: fonts.FBB,
-                        fontSize: 20,
+                        backgroundColor: colors.creamBase5,
+                        height: 35,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: 15,
+                        marginHorizontal: 3,
+                        marginBottom: 2,
                       }}
+                      onPress={() => onSetNodesAnswer(index + 1)}
                     >
-                      {index + 1}
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-            ))}
+                      <Text
+                        style={{
+                          color: colors.white,
+                          fontFamily: fonts.FBB,
+                          fontSize: 20,
+                        }}
+                      >
+                        {index + 1}
+                      </Text>
+                    </Pressable>
+                  )}
+                  {/* )} */}
+                </View>
+              );
+            })}
           </View>
           <View style={{ flexDirection: "row", position: "absolute" }}>
             {["", "", "", "", "", "", ""].map((_, index) =>
@@ -324,7 +463,7 @@ export default levelOne = ({ navigation, route }) => {
           </View>
         </View>
       </ScrollView>
-      {stepOne === 2 && (
+      {stepOne === 1 && (
         <View
           style={{
             backgroundColor: colors.creamBase2,
@@ -346,9 +485,14 @@ export default levelOne = ({ navigation, route }) => {
             </Text>
           </Pressable>
           <View style={{ width: 10 }} />
-          <Pressable style={styles.btnContainer} onPress={onSubmit}>
+          <TouchableOpacity
+            style={styles.btnContainer}
+            onPress={() => {
+              onSubmit();
+            }}
+          >
             <Text style={styles.btnText}>Submit my answer</Text>
-          </Pressable>
+          </TouchableOpacity>
           <SafeAreaView />
         </View>
       )}

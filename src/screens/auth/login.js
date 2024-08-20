@@ -98,7 +98,7 @@ export default login = (props) => {
       _errorMessage("Please enter your passsword.");
     } else {
       setIsLoading(true);
-     
+
       let requestBody = {
         email: email,
         name: name,
@@ -116,6 +116,7 @@ export default login = (props) => {
           _errorMessage(response.responseData.message);
         } else {
           saveData("objLogin", JSON.stringify(response.responseData.data));
+          saveData("setID", JSON.stringify(response.responseData.data?.id));
           props.navigation.replace("tabBar");
           setTimeout(() => {
             setActiveIndex(0);
@@ -137,7 +138,7 @@ export default login = (props) => {
       _errorMessage("Please enter your passsword.");
     } else {
       //   setIsLoading(true);
-   
+
       let requestBody = {
         email: loginemail,
         password: loginPassword,
@@ -155,6 +156,7 @@ export default login = (props) => {
           _errorMessage(response.responseData.message);
         } else {
           saveData("objLogin", JSON.stringify(response.responseData.data));
+          saveData("setID", JSON.stringify(response.responseData.data?.id));
           props.navigation.replace("tabBar");
           setTimeout(() => {
             setActiveIndex(0);

@@ -132,5 +132,6 @@
   "ear_score_graph": "ear_score_graph.php",
   "newLevels": "levels.php",
   "quizAndLevels": "quiz.php",
-  "levelsResult": "levels_result.php"
+  "levelsResult": "levels_result.php",
+  "allLavel": "api/Lavel/get_lavel_list"
 }
