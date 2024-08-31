@@ -10,17 +10,21 @@ import {
   StatusBar,
   Pressable,
   TouchableOpacity,
+  BackHandler,
 } from "react-native";
 import { colors } from "../../res/colors";
 import { images } from "../../res/images";
 import { fonts } from "../../res/fonts";
 import SoundPlayer from "react-native-sound-player";
+
 const dWidth = Dimensions.get("screen").width;
 const dHeight = Dimensions.get("screen").height;
 import { levelsResult, common_url } from "../../apiHelper/APIs.json";
 import { chapterNumber, levelNumber, levelResult } from "../../utils/constants";
 import AsyncStorage from "@react-native-community/async-storage";
 import { useColorScheme } from "../../../node_modules/react-native/types/index";
+
+var Sound = require("react-native-sound");
 export default levelOne = ({ navigation, route }) => {
   const level1Data = route.params.data;
   const levelIndex = route.params.levelIndex;
@@ -77,6 +81,20 @@ export default levelOne = ({ navigation, route }) => {
     };
   }, []);
 
+  useEffect(() => {
+    const backAction = () => {
+      SoundPlayer.pause();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, []);
+
   console.log("data----", data);
 
   useEffect(() => {
@@ -86,16 +104,15 @@ export default levelOne = ({ navigation, route }) => {
   }, [data]);
 
   useEffect(() => {
-    if(progress == 100){
-      navigation.goBack()
+    if (progress == 100) {
+      navigation.goBack();
+      SoundPlayer.pause();
     }
     getChapterInfo();
     return () => {
       clearInterval(timeInterval);
     };
-    
   }, [progress]);
-
 
   const onHearBaseSound = () => {
     setStepOne(0);
@@ -303,13 +320,42 @@ export default levelOne = ({ navigation, route }) => {
     )
       .then((response) => response.json())
       .then((result) => {
+        console.log("result-=-=-=-=-=raw", result?.data?.chapterMoreInfo);
+        console.log("result?.data", result?.data);
         if (result?.status == 1) {
-          setData(result?.data?.chapterMoreInfo);
           setDataInfo(result?.data);
+          setData(result?.data?.chapterMoreInfo);
+
           setProgress(result?.isComplatedPr);
         }
       })
       .catch((error) => console.log("error", error));
+  };
+
+  const handlePress = (item, index) => {
+    console.log("item---", item);
+
+    if (!item?.audioFileUrl) {
+      console.error("Audio file URL is missing or invalid");
+      return;
+    }
+  
+    const sound = new Sound(item.audioFileUrl, null, (error) => {
+      if (error) {
+        console.log("Failed to load sound:", error);
+        return; // Stop further execution if the sound failed to load
+      }
+  
+      sound.play((success) => {
+        if (!success) {
+          console.log("Sound did not play correctly. Please check the audio file or path.");
+        } else {
+          console.log("Sound played successfully");
+        }
+      });
+    });
+  
+    onSetNodesAnswer(index + 1);
   };
 
   return (
@@ -320,7 +366,11 @@ export default levelOne = ({ navigation, route }) => {
         <View
           style={{ flexDirection: "row", marginTop: 20, alignItems: "center" }}
         >
-          <Pressable onPress={() => navigation.goBack()}>
+          <Pressable
+            onPress={() => {
+              SoundPlayer.pause(), navigation.goBack();
+            }}
+          >
             <Image
               source={images.leftArrow}
               style={{
@@ -391,8 +441,19 @@ export default levelOne = ({ navigation, route }) => {
         </View>
 
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row" }}>
-            {["", "", "", "", "", "", ""].map((_, index) => {
+          <Image
+            source={{ uri: dataInfo?.keyboardImgUrl }}
+            style={{ width: "100%", height: 110 }}
+            resizeMode="contain"
+          />
+          <View
+            style={{
+              flexDirection: "row",
+              position: "absolute",
+              bottom: 5,
+            }}
+          >
+            {dataInfo?.keybordAudioList.map((item, index) => {
               return (
                 <View
                   style={[
@@ -404,39 +465,35 @@ export default levelOne = ({ navigation, route }) => {
                     },
                   ]}
                 >
-                  {/* {stepOne >= 1 && ( */}
-                  {nodes.length && (
-                    <Pressable
-                      disabled={nodesPosition === 5}
+                  <Pressable
+                    disabled={nodesPosition === 5}
+                    style={{
+                      backgroundColor: colors.creamBase5,
+                      height: 35,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 15,
+                      marginHorizontal: 3,
+                      marginBottom: 2,
+                    }}
+                    onPress={() => handlePress(item, index)}
+                  >
+                    <Text
                       style={{
-                        backgroundColor: colors.creamBase5,
-                        height: 35,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: 15,
-                        marginHorizontal: 3,
-                        marginBottom: 2,
+                        color: colors.white,
+                        fontFamily: fonts.FBB,
+                        fontSize: 20,
                       }}
-                      onPress={() => onSetNodesAnswer(index + 1)}
                     >
-                      <Text
-                        style={{
-                          color: colors.white,
-                          fontFamily: fonts.FBB,
-                          fontSize: 20,
-                        }}
-                      >
-                        {index + 1}
-                      </Text>
-                    </Pressable>
-                  )}
-                  {/* )} */}
+                      {index + 1}
+                    </Text>
+                  </Pressable>
                 </View>
               );
             })}
           </View>
-          <View style={{ flexDirection: "row", position: "absolute" }}>
-            {["", "", "", "", "", "", ""].map((_, index) =>
+          <View style={{ flexDirection: "row" }}>
+            {/* {["", "", "", "", "", "", ""].map((_, index) =>
               index !== 2 && index !== 6 ? (
                 <View
                   style={[
@@ -459,7 +516,7 @@ export default levelOne = ({ navigation, route }) => {
                   ]}
                 />
               )
-            )}
+            )} */}
           </View>
         </View>
       </ScrollView>
@@ -508,8 +565,8 @@ const styles = StyleSheet.create({
   },
   pianoWhite: {
     width: (dWidth - 40) / 8 + 2,
-    height: 100,
-    backgroundColor: colors.creamBase2,
+    // height: 100,
+    // backgroundColor: colors.creamBase2,
     marginRight: 3,
     borderRadius: 3,
   },
